@@ -1,13 +1,3 @@
-use serde::Deserialize;
-
-#[derive(Deserialize, Debug)]
-pub struct TaskStatus {
-    pub task_file_name: String,
-    pub status: String,
-    pub related_document: Option<String>,
-    pub result: Option<String>,
-}
-
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PaperlessError {

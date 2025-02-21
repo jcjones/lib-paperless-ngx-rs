@@ -1,5 +1,6 @@
 use crate::types;
-use reqwest::multipart;
+use log::info;
+use reqwest::{multipart, Response};
 
 pub struct PaperlessNgxClient {
     url: String,
@@ -32,7 +33,7 @@ impl PaperlessNgxClientBuilder {
 }
 
 impl PaperlessNgxClient {
-    pub(super) fn new(url: String, auth: String) -> PaperlessNgxClient {
+    fn new(url: String, auth: String) -> PaperlessNgxClient {
         PaperlessNgxClient {
             url,
             auth,
@@ -40,8 +41,8 @@ impl PaperlessNgxClient {
         }
     }
 
-    pub async fn upload(&self, path: &String) -> Result<String, types::PaperlessError> {
-        println!("Uploading {:?}", path);
+    pub async fn upload(&self, path: &String) -> Result<crate::task::Task, types::PaperlessError> {
+        info!("Uploading {:?}", path);
 
         let form = multipart::Form::new().file("document", path).await?;
 
@@ -56,30 +57,18 @@ impl PaperlessNgxClient {
         upload_resp.error_for_status_ref()?;
         let task_uuid = upload_resp.text().await?;
         let trimmed_task_uuid = task_uuid.trim_matches(|c| c == '\"');
-        println!("Task submitted: {trimmed_task_uuid}");
-        Ok(trimmed_task_uuid.to_string())
+
+        info!("Task submitted: {trimmed_task_uuid}");
+
+        Ok(crate::task::Task::new(trimmed_task_uuid.to_string(), self))
     }
 
-    pub async fn task_status(
-        &self,
-        uuid: &String,
-    ) -> Result<types::TaskStatus, types::PaperlessError> {
-        let resp = self
-            .client
-            .get(format!("{}/api/tasks/?task_id={}", self.url, uuid))
+    pub(crate) async fn get(&self, path: String) -> Result<Response, reqwest::Error> {
+        self.client
+            .get(format!("{}{}", self.url, path))
             .header("Authorization", format!("Token {}", self.auth))
             .send()
-            .await?;
-        resp.error_for_status_ref()?;
-
-        let resp_json = resp.json::<Vec<types::TaskStatus>>().await?;
-        if resp_json.len() > 1 {
-            eprintln!("Unexpected number of status responses: {}", resp_json.len());
-        }
-        if let Some(status) = resp_json.into_iter().next() {
-            return Ok(status);
-        }
-        Err(types::PaperlessError::TooManyTasks())
+            .await
     }
 }
 
