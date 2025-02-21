@@ -1,0 +1,17 @@
+[package]
+name = "paperless_ngx_api"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+description = "A library for interacting with Paperless-ngx"
+repository = "https://github.com/jcjones/lib-paperless-ngx-rs"
+readme = "README.md"
+
+[dependencies]
+env_logger = "0.9"
+reqwest = { version = "0.12", features = ["stream", "multipart", "json"] }
+serde = { version = "1.0.152", features = ["derive"] }
+thiserror = "2.0.11"
+
+[dev-dependencies]
+assert_matches = "1.5.0"

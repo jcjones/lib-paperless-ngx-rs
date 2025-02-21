@@ -1,0 +1,1 @@
+Provides an API interface to Paperless-ngx
