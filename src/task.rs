@@ -1,4 +1,4 @@
-use crate::{client::PaperlessNgxClient, types};
+use crate::{client::PaperlessNgxClient, errors::PaperlessError};
 use log::warn;
 use serde::Deserialize;
 
@@ -11,16 +11,16 @@ pub struct TaskStatus {
 }
 
 pub struct Task<'a> {
-    uuid: String,
     client: &'a PaperlessNgxClient,
+    uuid: String,
 }
 
 impl<'a> Task<'a> {
-    pub fn new(uuid: String, client: &'a PaperlessNgxClient) -> Task<'a> {
+    pub fn from_uuid(client: &'a PaperlessNgxClient, uuid: String) -> Task<'a> {
         Task { uuid, client }
     }
 
-    pub async fn status(&'a self) -> Result<TaskStatus, types::PaperlessError> {
+    pub async fn status(&'a self) -> Result<TaskStatus, PaperlessError> {
         let resp = self
             .client
             .get(format!("/api/tasks/?task_id={}", self.uuid))
@@ -33,6 +33,6 @@ impl<'a> Task<'a> {
         if let Some(status) = resp_json.into_iter().next() {
             return Ok(status);
         }
-        Err(types::PaperlessError::TooManyTasks())
+        Err(PaperlessError::TooManyTasks())
     }
 }

@@ -7,8 +7,11 @@ pub enum PaperlessError {
     #[error("The configuration was incomplete")]
     IncompleteConfig(),
 
+    #[error("The correspondent is unknown")]
+    UnknownCorrespondent(),
+
     #[error("API interaction error: {0}")]
-    APIError(#[from] reqwest::Error),
+    API(#[from] reqwest::Error),
 
     #[error("I/O error")]
     Io(#[from] std::io::Error),
