@@ -19,12 +19,12 @@ pub struct PaperlessNgxClientBuilder {
 }
 
 impl PaperlessNgxClientBuilder {
-    pub fn set_url(mut self, url: String) -> PaperlessNgxClientBuilder {
-        self.url = Some(url);
+    pub fn set_url(mut self, url: &str) -> PaperlessNgxClientBuilder {
+        self.url = Some(url.to_owned());
         self
     }
-    pub fn set_auth_token(mut self, auth: String) -> PaperlessNgxClientBuilder {
-        self.auth = Some(auth);
+    pub fn set_auth_token(mut self, auth: &str) -> PaperlessNgxClientBuilder {
+        self.auth = Some(auth.to_owned());
         self
     }
     pub fn build(&self) -> Result<PaperlessNgxClient, PaperlessError> {
@@ -45,7 +45,7 @@ impl PaperlessNgxClient {
         }
     }
 
-    fn url_from_path(&self, path: String) -> String {
+    fn url_from_path(&self, path: &str) -> String {
         format!("{}{}", self.url, path)
     }
 
@@ -56,7 +56,7 @@ impl PaperlessNgxClient {
 
         let upload_req = self
             .client
-            .post(self.url_from_path("/api/documents/post_document/".to_string()))
+            .post(self.url_from_path("/api/documents/post_document/"))
             .header("Authorization", format!("Token {}", self.auth))
             .multipart(form)
             .build()?;
@@ -79,7 +79,7 @@ impl PaperlessNgxClient {
             .await
     }
 
-    pub(crate) async fn get(&self, path: String) -> Result<Response, reqwest::Error> {
+    pub(crate) async fn get(&self, path: &str) -> Result<Response, reqwest::Error> {
         self.raw_get(self.url_from_path(path)).await
     }
 
@@ -98,7 +98,7 @@ impl PaperlessNgxClient {
     ) -> Result<Vec<Document>, PaperlessError> {
         let mut all_documents: Vec<Document> = Vec::new();
 
-        let mut next_url = self.url_from_path("/api/documents/".to_string());
+        let mut next_url = self.url_from_path("/api/documents/");
         if let Some(c) = correspondent {
             next_url.push_str(&format!("?correspondent__id__in={}", c.id));
         }
@@ -119,7 +119,8 @@ impl PaperlessNgxClient {
     }
 
     pub async fn document_get(&self, id: i32) -> Result<Document, PaperlessError> {
-        let resp = self.get(format!("/api/documents/{}/", id)).await?;
+        let url = format!("/api/documents/{}/", id);
+        let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
         Ok(resp.json::<crate::document::Document>().await?)
     }
@@ -143,7 +144,7 @@ impl PaperlessNgxClient {
     ) -> Result<Vec<Correspondent>, PaperlessError> {
         let mut all_correspondents: Vec<Correspondent> = Vec::new();
 
-        let mut next_url = self.url_from_path("/api/correspondents/".to_string());
+        let mut next_url = self.url_from_path("/api/correspondents/");
         if let Some(n) = name {
             next_url.push_str("?name__icontains=");
             next_url.push_str(&n);
@@ -181,7 +182,7 @@ mod tests {
     #[test]
     fn client_only_urls() {
         match PaperlessNgxClientBuilder::default()
-            .set_url("https://localhost".to_string())
+            .set_url("https://localhost")
             .build()
         {
             Ok(_) => assert!(false),
@@ -191,7 +192,7 @@ mod tests {
     #[test]
     fn client_only_auth() {
         match PaperlessNgxClientBuilder::default()
-            .set_auth_token("a spike of pearl and silver".to_string())
+            .set_auth_token("a spike of pearl and silver")
             .build()
         {
             Ok(_) => assert!(false),
@@ -201,8 +202,8 @@ mod tests {
     #[test]
     fn client_build() {
         PaperlessNgxClientBuilder::default()
-            .set_auth_token("melon".to_string())
-            .set_url("https://localhost".to_string())
+            .set_auth_token("melon")
+            .set_url("https://localhost")
             .build()
             .unwrap();
     }

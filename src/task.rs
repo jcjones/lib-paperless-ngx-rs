@@ -21,10 +21,8 @@ impl<'a> Task<'a> {
     }
 
     pub async fn status(&'a self) -> Result<TaskStatus, PaperlessError> {
-        let resp = self
-            .client
-            .get(format!("/api/tasks/?task_id={}", self.uuid))
-            .await?;
+        let url = format!("/api/tasks/?task_id={}", self.uuid);
+        let resp = self.client.get(&url).await?;
         resp.error_for_status_ref()?;
         let resp_json = resp.json::<Vec<TaskStatus>>().await?;
         if resp_json.len() > 1 {
