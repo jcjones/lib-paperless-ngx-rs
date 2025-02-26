@@ -6,7 +6,7 @@ use crate::{
     task::Task,
 };
 use log::{debug, info};
-use reqwest::{multipart, Response};
+use reqwest::{multipart, RequestBuilder, Response};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -64,17 +64,20 @@ impl PaperlessNgxClient {
         format!("{}{}", self.url, path)
     }
 
+    fn add_headers(&self, req: RequestBuilder) -> RequestBuilder {
+        req.header("Authorization", format!("Token {}", self.auth))
+    }
+
     pub async fn upload(&self, path: &str) -> Result<crate::task::Task, PaperlessError> {
         info!("Uploading {:?}", path);
 
         let form = multipart::Form::new().file("document", path).await?;
 
-        let upload_req = self
+        let op = self
             .client
-            .post(self.url_from_path("/api/documents/post_document/"))
-            .header("Authorization", format!("Token {}", self.auth))
-            .multipart(form)
-            .build()?;
+            .post(self.url_from_path("/api/documents/post_document/"));
+
+        let upload_req = self.add_headers(op).multipart(form).build()?;
 
         if self.noop {
             return Ok(Task::from_uuid(self, "noop uuid".to_string()));
@@ -91,16 +94,18 @@ impl PaperlessNgxClient {
     }
 
     pub(crate) async fn raw_get(&self, url: &str) -> Result<Response, reqwest::Error> {
-        self.client
-            .get(url)
-            .header("Authorization", format!("Token {}", self.auth))
-            .send()
-            .await
+        let op = self.client.get(url);
+        self.add_headers(op).send().await
     }
 
     pub(crate) async fn get(&self, path: &str) -> Result<Response, reqwest::Error> {
         let url = self.url_from_path(path);
         self.raw_get(&url).await
+    }
+
+    pub(crate) async fn delete(&self, path: &str) -> Result<Response, reqwest::Error> {
+        let url = self.url_from_path(path);
+        self.add_headers(self.client.delete(url)).send().await
     }
 
     async fn get_paginated<T>(&self, path: &str) -> Result<Page<T>, PaperlessError>
@@ -188,12 +193,10 @@ impl PaperlessNgxClient {
             return Ok(());
         }
 
-        let req = self
+        let op = self
             .client
-            .post(self.url_from_path("/api/documents/bulk_edit/"))
-            .header("Authorization", format!("Token {}", self.auth))
-            .json(&data)
-            .build()?;
+            .post(self.url_from_path("/api/documents/bulk_edit/"));
+        let req = self.add_headers(op).json(&data).build()?;
 
         let resp = self.client.execute(req).await?;
         resp.error_for_status_ref()?;
@@ -218,6 +221,17 @@ impl PaperlessNgxClient {
         let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
         Ok(resp.json::<Correspondent>().await?)
+    }
+
+    pub async fn correspondent_delete(&self, id: &i32) -> Result<(), PaperlessError> {
+        if self.noop {
+            return Ok(());
+        }
+
+        let url = format!("/api/correspondents/{}/", id);
+        let resp = self.delete(&url).await?;
+        resp.error_for_status_ref()?;
+        Ok(())
     }
 
     pub async fn correspondents(
