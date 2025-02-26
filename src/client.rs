@@ -93,30 +93,37 @@ impl PaperlessNgxClient {
         Ok(resp.json::<Page<T>>().await?)
     }
 
-    pub async fn documents(
-        &self,
-        correspondent: Option<Correspondent>,
-    ) -> Result<Vec<Document>, PaperlessError> {
-        let mut all_documents: Vec<Document> = Vec::new();
-
-        let mut next_url = self.url_from_path("/api/documents/");
-        if let Some(c) = correspondent {
-            next_url.push_str(&format!("?correspondent__id__in={}", c.id));
-        }
+    async fn get_all_pages<T>(&self, path: &str) -> Result<Vec<T>, PaperlessError>
+    where
+        for<'de2> T: Deserialize<'de2>,
+    {
+        let mut all: Vec<T> = Vec::new();
+        let mut next_url = self.url_from_path(path);
 
         loop {
-            let mut page: Page<Document> = self.get_paginated(&next_url).await?;
+            let mut page: Page<T> = self.get_paginated(&next_url).await?;
             debug!(
                 "Page len={}, next={:?}, previous={:?}",
                 page.count, page.next, page.previous
             );
-            all_documents.append(&mut page.results);
+            all.append(&mut page.results);
             if let Some(n) = page.next {
                 next_url = n.replace("http", "https");
             } else {
-                return Ok(all_documents);
+                return Ok(all);
             }
         }
+    }
+
+    pub async fn documents(
+        &self,
+        correspondent: Option<Correspondent>,
+    ) -> Result<Vec<Document>, PaperlessError> {
+        let mut path = "/api/documents/".to_string();
+        if let Some(c) = correspondent {
+            path.push_str(&format!("?correspondent__id__in={}", c.id));
+        }
+        self.get_all_pages(&path).await
     }
 
     pub async fn document_get(&self, id: &i32) -> Result<Document, PaperlessError> {
@@ -150,27 +157,12 @@ impl PaperlessNgxClient {
         &self,
         name: Option<String>,
     ) -> Result<Vec<Correspondent>, PaperlessError> {
-        let mut all_correspondents: Vec<Correspondent> = Vec::new();
-
-        let mut next_url = self.url_from_path("/api/correspondents/");
+        let mut path = "/api/correspondents/".to_string();
         if let Some(n) = name {
-            next_url.push_str("?name__icontains=");
-            next_url.push_str(&n);
+            path.push_str("?name__icontains=");
+            path.push_str(&n);
         }
-
-        loop {
-            let mut page: Page<Correspondent> = self.get_paginated(&next_url).await?;
-            debug!(
-                "Page len={}, next={:?}, previous={:?}",
-                page.count, page.next, page.previous
-            );
-            all_correspondents.append(&mut page.results);
-            if let Some(n) = page.next {
-                next_url = n.replace("http", "https");
-            } else {
-                return Ok(all_correspondents);
-            }
-        }
+        self.get_all_pages(&path).await
     }
 }
 
