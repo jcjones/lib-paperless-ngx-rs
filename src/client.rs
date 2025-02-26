@@ -64,13 +64,6 @@ impl PaperlessNgxClient {
         format!("{}{}", self.url, path)
     }
 
-    fn check_noop(&self) -> Result<(), PaperlessError> {
-        match self.noop {
-            true => Err(PaperlessError::NoOpSet()),
-            false => Ok(()),
-        }
-    }
-
     pub async fn upload(&self, path: &str) -> Result<crate::task::Task, PaperlessError> {
         info!("Uploading {:?}", path);
 
@@ -83,7 +76,9 @@ impl PaperlessNgxClient {
             .multipart(form)
             .build()?;
 
-        self.check_noop()?;
+        if self.noop {
+            return Ok(Task::from_uuid(self, "noop uuid".to_string()));
+        }
 
         let upload_resp = self.client.execute(upload_req).await?;
         upload_resp.error_for_status_ref()?;
@@ -189,7 +184,9 @@ impl PaperlessNgxClient {
 
         debug!("Bulk editing {:?}", data);
 
-        self.check_noop()?;
+        if self.noop {
+            return Ok(());
+        }
 
         let req = self
             .client
