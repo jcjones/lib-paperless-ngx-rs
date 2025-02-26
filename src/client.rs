@@ -49,7 +49,7 @@ impl PaperlessNgxClient {
         format!("{}{}", self.url, path)
     }
 
-    pub async fn upload(&self, path: &String) -> Result<crate::task::Task, PaperlessError> {
+    pub async fn upload(&self, path: &str) -> Result<crate::task::Task, PaperlessError> {
         info!("Uploading {:?}", path);
 
         let form = multipart::Form::new().file("document", path).await?;
@@ -71,7 +71,7 @@ impl PaperlessNgxClient {
         Ok(Task::from_uuid(self, trimmed_task_uuid.to_string()))
     }
 
-    pub(crate) async fn raw_get(&self, url: String) -> Result<Response, reqwest::Error> {
+    pub(crate) async fn raw_get(&self, url: &str) -> Result<Response, reqwest::Error> {
         self.client
             .get(url)
             .header("Authorization", format!("Token {}", self.auth))
@@ -80,10 +80,11 @@ impl PaperlessNgxClient {
     }
 
     pub(crate) async fn get(&self, path: &str) -> Result<Response, reqwest::Error> {
-        self.raw_get(self.url_from_path(path)).await
+        let url = self.url_from_path(path);
+        self.raw_get(&url).await
     }
 
-    async fn get_paginated<T>(&self, path: String) -> Result<Page<T>, PaperlessError>
+    async fn get_paginated<T>(&self, path: &str) -> Result<Page<T>, PaperlessError>
     where
         for<'de2> T: Deserialize<'de2>,
     {
@@ -104,7 +105,7 @@ impl PaperlessNgxClient {
         }
 
         loop {
-            let mut page: Page<Document> = self.get_paginated(next_url).await?;
+            let mut page: Page<Document> = self.get_paginated(&next_url).await?;
             debug!(
                 "Page len={}, next={:?}, previous={:?}",
                 page.count, page.next, page.previous
@@ -118,11 +119,11 @@ impl PaperlessNgxClient {
         }
     }
 
-    pub async fn document_get(&self, id: i32) -> Result<Document, PaperlessError> {
+    pub async fn document_get(&self, id: &i32) -> Result<Document, PaperlessError> {
         let url = format!("/api/documents/{}/", id);
         let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
-        Ok(resp.json::<crate::document::Document>().await?)
+        Ok(resp.json::<Document>().await?)
     }
 
     pub async fn correspondent_for_name(
@@ -138,6 +139,13 @@ impl PaperlessNgxClient {
         Err(PaperlessError::UnknownCorrespondent())
     }
 
+    pub async fn correspondent_get(&self, id: &i32) -> Result<Correspondent, PaperlessError> {
+        let url = format!("/api/correspondents/{}/", id);
+        let resp = self.get(&url).await?;
+        resp.error_for_status_ref()?;
+        Ok(resp.json::<Correspondent>().await?)
+    }
+
     pub async fn correspondents(
         &self,
         name: Option<String>,
@@ -151,7 +159,7 @@ impl PaperlessNgxClient {
         }
 
         loop {
-            let mut page: Page<Correspondent> = self.get_paginated(next_url).await?;
+            let mut page: Page<Correspondent> = self.get_paginated(&next_url).await?;
             debug!(
                 "Page len={}, next={:?}, previous={:?}",
                 page.count, page.next, page.previous
