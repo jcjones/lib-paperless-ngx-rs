@@ -1,21 +1,27 @@
 use crate::{
-    correspondent::Correspondent, document::Document, errors::PaperlessError, page::Page,
+    correspondent::Correspondent,
+    document::{Document, DocumentBulkEdit},
+    errors::PaperlessError,
+    page::Page,
     task::Task,
 };
 use log::{debug, info};
 use reqwest::{multipart, Response};
 use serde::Deserialize;
+use std::collections::HashMap;
 
 pub struct PaperlessNgxClient {
     url: String,
     auth: String,
     client: reqwest::Client,
+    noop: bool,
 }
 
 #[derive(Default)]
 pub struct PaperlessNgxClientBuilder {
     url: Option<String>,
     auth: Option<String>,
+    noop: bool,
 }
 
 impl PaperlessNgxClientBuilder {
@@ -27,9 +33,17 @@ impl PaperlessNgxClientBuilder {
         self.auth = Some(auth.to_owned());
         self
     }
+    pub fn set_no_op(mut self, noop: bool) -> PaperlessNgxClientBuilder {
+        self.noop = noop;
+        self
+    }
     pub fn build(&self) -> Result<PaperlessNgxClient, PaperlessError> {
         if let (Some(url), Some(auth)) = (self.url.clone(), self.auth.clone()) {
-            return Ok(PaperlessNgxClient::new(url, auth));
+            let mut client = PaperlessNgxClient::new(url, auth);
+            if self.noop {
+                client.noop = self.noop;
+            }
+            return Ok(client);
         }
 
         Err(PaperlessError::IncompleteConfig())
@@ -42,11 +56,19 @@ impl PaperlessNgxClient {
             url,
             auth,
             client: reqwest::Client::new(),
+            noop: false,
         }
     }
 
     fn url_from_path(&self, path: &str) -> String {
         format!("{}{}", self.url, path)
+    }
+
+    fn check_noop(&self) -> Result<(), PaperlessError> {
+        match self.noop {
+            true => Err(PaperlessError::NoOpSet()),
+            false => Ok(()),
+        }
     }
 
     pub async fn upload(&self, path: &str) -> Result<crate::task::Task, PaperlessError> {
@@ -60,6 +82,8 @@ impl PaperlessNgxClient {
             .header("Authorization", format!("Token {}", self.auth))
             .multipart(form)
             .build()?;
+
+        self.check_noop()?;
 
         let upload_resp = self.client.execute(upload_req).await?;
         upload_resp.error_for_status_ref()?;
@@ -126,11 +150,57 @@ impl PaperlessNgxClient {
         self.get_all_pages(&path).await
     }
 
+    pub async fn document_ids(
+        &self,
+        correspondent: Option<Correspondent>,
+    ) -> Result<Vec<i32>, PaperlessError> {
+        let mut path = "/api/documents/".to_string();
+        if let Some(c) = correspondent {
+            path.push_str(&format!("?correspondent__id__in={}", c.id));
+        }
+        let url = self.url_from_path(&path);
+        let page: Page<Document> = self.get_paginated(&url).await?;
+        Ok(page.all)
+    }
+
     pub async fn document_get(&self, id: &i32) -> Result<Document, PaperlessError> {
         let url = format!("/api/documents/{}/", id);
         let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
         Ok(resp.json::<Document>().await?)
+    }
+
+    pub async fn documents_bulk_set_correspondent(
+        &self,
+        doc_ids: Vec<i32>,
+        correspondent: &Correspondent,
+    ) -> Result<(), PaperlessError> {
+        let mut params = HashMap::new();
+        params.insert(
+            "correspondent".to_string(),
+            format!("{}", correspondent.id).to_string(),
+        );
+
+        let data = DocumentBulkEdit {
+            documents: doc_ids,
+            method: "set_correspondent".to_string(),
+            parameters: params,
+        };
+
+        debug!("Bulk editing {:?}", data);
+
+        self.check_noop()?;
+
+        let req = self
+            .client
+            .post(self.url_from_path("/api/documents/bulk_edit/"))
+            .header("Authorization", format!("Token {}", self.auth))
+            .json(&data)
+            .build()?;
+
+        let resp = self.client.execute(req).await?;
+        resp.error_for_status_ref()?;
+        Ok(())
     }
 
     pub async fn correspondent_for_name(

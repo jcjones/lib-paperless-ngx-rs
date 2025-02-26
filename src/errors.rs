@@ -1,6 +1,9 @@
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum PaperlessError {
+    #[error("The noop flag was set")]
+    NoOpSet(),
+
     #[error("Too many tasks supplied")]
     TooManyTasks(),
 
