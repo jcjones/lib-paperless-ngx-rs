@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn client_no_args() {
         match PaperlessNgxClientBuilder::default().build() {
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(e) => assert_matches!(e, PaperlessError::IncompleteConfig()),
         }
     }
@@ -266,7 +266,7 @@ mod tests {
             .set_url("https://localhost")
             .build()
         {
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(e) => assert_matches!(e, PaperlessError::IncompleteConfig()),
         }
     }
@@ -276,7 +276,7 @@ mod tests {
             .set_auth_token("a spike of pearl and silver")
             .build()
         {
-            Ok(_) => assert!(false),
+            Ok(_) => panic!(),
             Err(e) => assert_matches!(e, PaperlessError::IncompleteConfig()),
         }
     }
