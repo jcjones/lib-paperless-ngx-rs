@@ -69,7 +69,7 @@ impl PaperlessNgxClient {
     }
 
     pub async fn upload(&self, path: &str) -> Result<crate::task::Task, PaperlessError> {
-        info!("Uploading {:?}", path);
+        info!("Uploading {path:?}");
 
         let form = multipart::Form::new().file("document", path).await?;
 
@@ -164,7 +164,7 @@ impl PaperlessNgxClient {
     }
 
     pub async fn document_get(&self, id: &i32) -> Result<Document, PaperlessError> {
-        let url = format!("/api/documents/{}/", id);
+        let url = format!("/api/documents/{id}/");
         let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
         Ok(resp.json::<Document>().await?)
@@ -187,7 +187,7 @@ impl PaperlessNgxClient {
             parameters: params,
         };
 
-        debug!("Bulk editing {:?}", data);
+        debug!("Bulk editing {data:?}");
 
         if self.noop {
             return Ok(());
@@ -217,7 +217,7 @@ impl PaperlessNgxClient {
     }
 
     pub async fn correspondent_get(&self, id: &i32) -> Result<Correspondent, PaperlessError> {
-        let url = format!("/api/correspondents/{}/", id);
+        let url = format!("/api/correspondents/{id}/");
         let resp = self.get(&url).await?;
         resp.error_for_status_ref()?;
         Ok(resp.json::<Correspondent>().await?)
@@ -228,7 +228,7 @@ impl PaperlessNgxClient {
             return Ok(());
         }
 
-        let url = format!("/api/correspondents/{}/", id);
+        let url = format!("/api/correspondents/{id}/");
         let resp = self.delete(&url).await?;
         resp.error_for_status_ref()?;
         Ok(())
