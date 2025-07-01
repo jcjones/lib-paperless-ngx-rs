@@ -7,9 +7,14 @@ description = "A library for interacting with Paperless-ngx"
 repository = "https://github.com/jcjones/lib-paperless-ngx-rs"
 readme = "README.md"
 
+[features]
+default = ["default-tls"]
+default-tls = ["reqwest/native-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
+
 [dependencies]
 log = "0.4"
-reqwest = { version = "0.12", features = ["stream", "multipart", "json"] }
+reqwest = { version = "0.12", features = ["stream", "multipart", "json"], default-features = false }
 serde = { version = "1.0.152", features = ["derive"] }
 thiserror = "2.0.11"
 
